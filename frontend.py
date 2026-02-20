@@ -213,7 +213,7 @@ if run:
     b64 = base64.b64encode(raw).decode("utf-8")
     kb  = len(raw)/1024
     s1.markdown(step("✓","Step 01","File Ready",f"Encoded {kb:.1f} KB.","done"), unsafe_allow_html=True)
-    s2.markdown(step("⚙","Step 02","Connecting to Backend","Sending request to localhost:8000...","active"), unsafe_allow_html=True)
+    s2.markdown(step("⚙","Step 02","Connecting to Backend","Sending request to Railway backend...","active"), unsafe_allow_html=True)
 
     # Pass chat_history to backend so LLM has context
     payload = {
