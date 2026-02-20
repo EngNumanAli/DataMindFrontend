@@ -3,8 +3,8 @@ import requests
 import base64
 import time
 
-BACKEND_URL = "https://your-app.railway.app/agent/invoke"
-HEALTH_URL  = "https://your-app.railway.app/health"
+BACKEND_URL = "https://datamindbackend-production.up.railway.app/agent/invoke"
+HEALTH_URL  = "https://datamindbackend-production.up.railway.app/health"
 MAX_FILE_MB     = 10
 REQUEST_TIMEOUT = 400
 
