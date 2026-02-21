@@ -4,8 +4,8 @@ import base64
 import time
 
 # ── Config ────────────────────────────────────────────────────────────────────
-BACKEND_URL     = "http://localhost:8000/agent/invoke"
-HEALTH_URL      = "http://localhost:8000/health"
+BACKEND_URL = "https://datamindbackend-production.up.railway.app/agent/invoke"
+HEALTH_URL  = "https://datamindbackend-production.up.railway.app/health"
 MAX_FILE_MB     = 10
 REQUEST_TIMEOUT = 400
 
