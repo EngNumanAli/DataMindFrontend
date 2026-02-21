@@ -3,219 +3,637 @@ import requests
 import base64
 import time
 
-BACKEND_URL = "https://datamindbackend-production.up.railway.app/agent/invoke"
-HEALTH_URL  = "https://datamindbackend-production.up.railway.app/health"
+# ── Config ────────────────────────────────────────────────────────────────────
+BACKEND_URL     = "http://localhost:8000/agent/invoke"
+HEALTH_URL      = "http://localhost:8000/health"
 MAX_FILE_MB     = 10
 REQUEST_TIMEOUT = 400
 
-st.set_page_config(page_title="DataMind AI", page_icon="◎", layout="wide")
+st.set_page_config(page_title="DataMind AI", page_icon="◈", layout="wide")
 
+# ══════════════════════════════════════════════════════════════════════════════
+# CSS — Neon Terminal × Brutalist Data Lab aesthetic
+# Dark background, electric accent, mono typography, sharp edges
+# ══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
-:root{--bg:#F5F0E8;--surface:#FDFAF4;--border:#DDD5C4;--ink:#1A1612;--ink2:#4A3F35;--muted:#9A8F85;--accent:#C8502A;--success:#2A7A4A;--warn:#B8860B;--danger:#C8302A;--shadow:0 2px 20px rgba(26,22,18,0.08);--shadow-lg:0 8px 40px rgba(26,22,18,0.12)}
-*{box-sizing:border-box}
-html,body,[data-testid="stAppViewContainer"]{background:var(--bg)!important;color:var(--ink)!important;font-family:'IBM Plex Sans',sans-serif!important}
-#MainMenu,footer,header{visibility:hidden}[data-testid="stToolbar"]{display:none}
-.main .block-container{max-width:1300px;padding:0 2.5rem 4rem!important}
-.masthead{border-bottom:3px solid var(--ink);padding:2rem 0 1.2rem;display:flex;align-items:flex-end;justify-content:space-between}
-.masthead-issue{font-family:'IBM Plex Mono',monospace;font-size:0.65rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem}
-.masthead-title{font-family:'Playfair Display',serif;font-size:3rem;font-weight:900;line-height:0.95;color:var(--ink);letter-spacing:-0.02em}
-.masthead-title span{color:var(--accent)}
-.masthead-tagline{font-family:'IBM Plex Mono',monospace;font-size:0.68rem;color:var(--muted);line-height:1.6;max-width:220px;text-align:right}
-.status-pill{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;padding:0.3rem 0.8rem;border-radius:2px;margin-bottom:0.6rem}
-.status-online{background:var(--success);color:#fff}.status-offline{background:var(--danger);color:#fff}
-.rule{border:none;border-top:1px solid var(--border);margin:1.5rem 0}
-.rule-thick{border:none;border-top:2px solid var(--ink);margin:0.5rem 0 2rem}
-.slabel{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;letter-spacing:0.22em;text-transform:uppercase;color:var(--muted);margin-bottom:0.6rem;display:flex;align-items:center;gap:0.6rem}
-.slabel::after{content:'';flex:1;height:1px;background:var(--border)}
-[data-testid="stFileUploader"]{background:var(--surface)!important;border:1.5px dashed var(--border)!important;border-radius:4px!important}
-[data-testid="stFileUploader"]:hover{border-color:var(--accent)!important}
-[data-testid="stFileUploaderDropzone"]{background:transparent!important}
-[data-testid="stFileUploader"] label{font-family:'IBM Plex Mono',monospace!important;font-size:0.78rem!important;color:var(--muted)!important}
-.stTextArea textarea{background:var(--surface)!important;border:1.5px solid var(--border)!important;border-radius:4px!important;color:var(--ink)!important;font-family:'IBM Plex Mono',monospace!important;font-size:0.85rem!important;padding:0.9rem 1rem!important;line-height:1.6!important}
-.stTextArea textarea:focus{border-color:var(--accent)!important;outline:none!important}
-.stTextArea label{font-family:'IBM Plex Mono',monospace!important;font-size:0.62rem!important;letter-spacing:0.22em!important;text-transform:uppercase!important;color:var(--muted)!important}
-.stButton>button{width:100%!important;background:var(--ink)!important;color:var(--bg)!important;border:none!important;border-radius:3px!important;padding:0.9rem 2rem!important;font-family:'IBM Plex Mono',monospace!important;font-weight:500!important;font-size:0.8rem!important;letter-spacing:0.15em!important;text-transform:uppercase!important;box-shadow:var(--shadow)!important}
-.stButton>button:hover{background:var(--accent)!important;transform:translateY(-1px)!important}
-.stButton>button:disabled{background:var(--border)!important;color:var(--muted)!important}
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap');
 
-/* Step boxes */
-.step-box{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--border);border-radius:4px;padding:1rem 1.2rem;margin-bottom:0.5rem;box-shadow:var(--shadow)}
-.step-active{border-left-color:var(--accent)!important}
-.step-done{border-left-color:var(--success)!important;opacity:0.8}
-.step-error{border-left-color:var(--danger)!important}
-.step-waiting{opacity:0.4}
-.step-row{display:flex;align-items:center;gap:0.75rem}
-.step-icon{font-size:1rem;flex-shrink:0;width:1.4rem;text-align:center}
-.step-num{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;letter-spacing:0.15em;color:var(--muted);text-transform:uppercase;flex-shrink:0}
-.step-name{font-family:'IBM Plex Sans',sans-serif;font-size:0.88rem;font-weight:500;color:var(--ink)}
-.step-detail{font-family:'IBM Plex Mono',monospace;font-size:0.73rem;color:var(--ink2);line-height:1.5;padding-left:3.2rem;margin-top:0.25rem}
+:root {
+  --bg:       #0a0a0f;
+  --surface:  #111118;
+  --panel:    #16161f;
+  --border:   #242430;
+  --border2:  #2e2e3e;
+  --text:     #e2e2f0;
+  --muted:    #5a5a78;
+  --dim:      #30303f;
+  --cyan:     #00e5ff;
+  --cyan-dim: #0097aa;
+  --green:    #00ff9d;
+  --red:      #ff4060;
+  --amber:    #ffb020;
+  --magenta:  #e040fb;
+  --glow-c:   rgba(0,229,255,0.12);
+  --glow-g:   rgba(0,255,157,0.10);
+}
 
-/* Chat history */
-.chat-container{display:flex;flex-direction:column;gap:1rem;margin-bottom:1.5rem}
-.chat-turn{border-radius:6px;overflow:hidden;box-shadow:var(--shadow)}
-.chat-turn-header{display:flex;align-items:center;justify-content:space-between;padding:0.6rem 1rem;background:var(--surface);border-bottom:1px solid var(--border)}
-.chat-turn-num{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted)}
-.chat-turn-query{font-family:'IBM Plex Sans',sans-serif;font-size:0.9rem;font-weight:500;color:var(--ink);padding:0.8rem 1rem;background:var(--surface);border-bottom:1px solid var(--border)}
-.chat-query-label{font-family:'IBM Plex Mono',monospace;font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent);margin-bottom:0.2rem}
-.chat-result{padding:0.8rem 1rem;background:#FDFAF4}
-.chat-result-row{display:flex;gap:1rem;align-items:flex-start}
-.chat-output{font-family:'IBM Plex Mono',monospace;font-size:0.75rem;color:var(--success);background:#1A1612;border-radius:3px;padding:0.6rem 0.8rem;flex:1;line-height:1.6;min-height:40px;white-space:pre-wrap}
-.chat-output-empty{color:var(--muted);font-style:italic}
-.chat-error{font-family:'IBM Plex Mono',monospace;font-size:0.75rem;color:var(--danger);background:#FFF5F5;border:1px solid #F5C5C5;border-radius:3px;padding:0.6rem 0.8rem;flex:1}
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; }
+html, body,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"] {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  font-family: 'Space Mono', monospace !important;
+}
 
-/* Result cards */
-.result-title{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;color:var(--ink);margin-bottom:0.2rem}
-.result-meta{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.9rem}
-.code-topbar{background:#2A2420;padding:0.55rem 1rem;font-family:'IBM Plex Mono',monospace;font-size:0.6rem;color:#888;letter-spacing:0.15em;text-transform:uppercase;display:flex;align-items:center;gap:0.4rem;border-radius:4px 4px 0 0}
-.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
-.dot-r{background:#FF5F56}.dot-y{background:#FFBD2E}.dot-g{background:#27C93F}
-.console-out{background:#1A1612;border-radius:4px;padding:1rem 1.2rem;font-family:'IBM Plex Mono',monospace;font-size:0.78rem;color:#7FD992;line-height:1.8;min-height:80px;white-space:pre-wrap;word-break:break-word}
-.console-empty{color:#555;font-style:italic}
-.img-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1.2rem}
-.error-card{background:#FFF5F5;border:1px solid #F5C5C5;border-left:4px solid var(--danger);border-radius:4px;padding:1rem 1.2rem;font-family:'IBM Plex Mono',monospace;font-size:0.78rem;color:var(--danger);line-height:1.6;margin-bottom:1rem}
-.error-lbl{font-weight:500;font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.3rem}
-.warn-card{background:#FFFBF0;border:1px solid #EDD890;border-left:4px solid var(--warn);border-radius:4px;padding:0.75rem 1rem;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--warn);margin-bottom:1rem}
-.empty-box{background:var(--surface);border:1.5px dashed var(--border);border-radius:4px;padding:3rem 2rem;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--muted)}
-.empty-icon{font-size:2rem;opacity:0.15;margin-bottom:0.75rem}
-.clear-btn-wrap{display:flex;justify-content:flex-end;margin-bottom:0.5rem}
+#MainMenu, footer, header { visibility: hidden; }
+[data-testid="stToolbar"]  { display: none; }
+.main .block-container     { max-width: 1400px; padding: 0 2rem 5rem !important; }
 
-[data-testid="stDownloadButton"] button{background:transparent!important;border:1.5px solid var(--border)!important;color:var(--ink2)!important;font-family:'IBM Plex Mono',monospace!important;font-size:0.72rem!important;letter-spacing:0.1em!important;border-radius:3px!important;padding:0.5rem 1rem!important;margin-top:0.75rem!important}
-[data-testid="stHorizontalBlock"]{gap:2rem!important}
-::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+/* ── Scrollbar ── */
+::-webkit-scrollbar         { width: 4px; height: 4px; }
+::-webkit-scrollbar-track   { background: var(--bg); }
+::-webkit-scrollbar-thumb   { background: var(--border2); border-radius: 4px; }
+
+/* ══════════════════════════════════════════════════════════════
+   HEADER
+══════════════════════════════════════════════════════════════ */
+.dm-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 2.2rem 0 1.4rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.dm-header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0;
+  width: 120px; height: 2px;
+  background: var(--cyan);
+  box-shadow: 0 0 12px var(--cyan);
+}
+
+.dm-logo {
+  font-family: 'Syne', sans-serif;
+  font-size: 2.8rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--text);
+}
+.dm-logo span { color: var(--cyan); text-shadow: 0 0 20px var(--cyan); }
+
+.dm-tagline {
+  font-size: 0.6rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 0.35rem;
+  font-family: 'Space Mono', monospace;
+}
+
+.dm-status {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.9rem;
+  border-radius: 2px;
+  border: 1px solid;
+}
+.dm-status.online  { color: var(--green); border-color: var(--green); background: rgba(0,255,157,0.06); text-shadow: 0 0 8px var(--green); }
+.dm-status.offline { color: var(--red);   border-color: var(--red);   background: rgba(255,64,96,0.06); }
+
+/* ══════════════════════════════════════════════════════════════
+   SECTION LABELS
+══════════════════════════════════════════════════════════════ */
+.sec-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--cyan-dim);
+  font-family: 'Space Mono', monospace;
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.sec-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FILE UPLOADER
+══════════════════════════════════════════════════════════════ */
+[data-testid="stFileUploader"] {
+  background: var(--surface) !important;
+  border: 1px dashed var(--border2) !important;
+  border-radius: 4px !important;
+  transition: border-color .2s !important;
+}
+[data-testid="stFileUploader"]:hover {
+  border-color: var(--cyan-dim) !important;
+}
+[data-testid="stFileUploader"] label,
+[data-testid="stFileUploaderDropzone"] span {
+  font-family: 'Space Mono', monospace !important;
+  font-size: 0.72rem !important;
+  color: var(--muted) !important;
+}
+
+.file-badge {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.68rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 3px;
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid;
+}
+.file-badge.ok  { color: var(--green); border-color: var(--green); background: rgba(0,255,157,0.05); }
+.file-badge.err { color: var(--red);   border-color: var(--red);   background: rgba(255,64,96,0.05); }
+
+/* ══════════════════════════════════════════════════════════════
+   TEXT AREA
+══════════════════════════════════════════════════════════════ */
+.stTextArea textarea {
+  background: var(--surface) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: 4px !important;
+  color: var(--text) !important;
+  font-family: 'Space Mono', monospace !important;
+  font-size: 0.82rem !important;
+  padding: 0.9rem 1rem !important;
+  line-height: 1.6 !important;
+  caret-color: var(--cyan) !important;
+}
+.stTextArea textarea:focus {
+  border-color: var(--cyan) !important;
+  box-shadow: 0 0 0 2px var(--glow-c) !important;
+  outline: none !important;
+}
+.stTextArea label {
+  font-family: 'Space Mono', monospace !important;
+  font-size: 0.6rem !important;
+  letter-spacing: 0.3em !important;
+  text-transform: uppercase !important;
+  color: var(--cyan-dim) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   BUTTONS
+══════════════════════════════════════════════════════════════ */
+.stButton > button {
+  background: transparent !important;
+  border: 1px solid var(--cyan) !important;
+  color: var(--cyan) !important;
+  font-family: 'Space Mono', monospace !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.2em !important;
+  text-transform: uppercase !important;
+  padding: 0.75rem 1.8rem !important;
+  border-radius: 3px !important;
+  transition: all .18s ease !important;
+  width: 100% !important;
+}
+.stButton > button:hover {
+  background: var(--glow-c) !important;
+  box-shadow: 0 0 16px var(--glow-c) !important;
+  transform: translateY(-1px) !important;
+}
+.stButton > button:active { transform: translateY(0) !important; }
+.stButton > button:disabled {
+  border-color: var(--dim) !important;
+  color: var(--muted) !important;
+  box-shadow: none !important;
+}
+
+/* Secondary / danger button variant */
+.stButton.danger > button {
+  border-color: var(--red) !important;
+  color: var(--red) !important;
+}
+.stButton.danger > button:hover {
+  background: rgba(255,64,96,0.08) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TURN CARDS
+══════════════════════════════════════════════════════════════ */
+.turn-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cyan);
+  border-radius: 4px;
+  margin-bottom: 1.2rem;
+  overflow: hidden;
+}
+.turn-card.latest { border-left-color: var(--green); box-shadow: 0 0 20px var(--glow-g); }
+.turn-card.errored { border-left-color: var(--red); }
+
+.turn-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 1.1rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.turn-header:hover { background: #1c1c28; }
+
+.turn-num {
+  font-size: 0.58rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  font-family: 'Space Mono', monospace;
+}
+.turn-num.errored { color: var(--red); }
+
+.turn-query {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  padding: 0 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.turn-chevron { font-size: 0.6rem; color: var(--muted); }
+
+.turn-body { padding: 1.2rem 1.1rem; }
+
+/* ══════════════════════════════════════════════════════════════
+   CODE BLOCK
+══════════════════════════════════════════════════════════════ */
+.code-chrome {
+  background: #0d1117;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+.code-chrome-bar {
+  background: #161b22;
+  padding: 0.5rem 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.mac-dot { width: 10px; height: 10px; border-radius: 50%; }
+.mac-r { background: #ff5f57; }
+.mac-y { background: #febc2e; }
+.mac-g { background: #28c840; }
+.code-chrome-label {
+  margin-left: auto;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CONSOLE OUTPUT
+══════════════════════════════════════════════════════════════ */
+.console {
+  background: #050508;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1rem 1.1rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.73rem;
+  color: var(--green);
+  line-height: 1.8;
+  min-height: 60px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-shadow: 0 0 6px rgba(0,255,157,0.3);
+}
+.console.empty { color: var(--muted); font-style: italic; text-shadow: none; }
+
+/* ══════════════════════════════════════════════════════════════
+   IMAGE CARD
+══════════════════════════════════════════════════════════════ */
+.img-frame {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ERROR / WARN BANNERS
+══════════════════════════════════════════════════════════════ */
+.err-banner {
+  background: rgba(255,64,96,0.07);
+  border: 1px solid rgba(255,64,96,0.35);
+  border-left: 3px solid var(--red);
+  border-radius: 4px;
+  padding: 0.8rem 1rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.73rem;
+  color: var(--red);
+  line-height: 1.6;
+  margin-bottom: 0.8rem;
+}
+.err-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+  opacity: 0.7;
+}
+
+.warn-banner {
+  background: rgba(255,176,32,0.07);
+  border: 1px solid rgba(255,176,32,0.3);
+  border-left: 3px solid var(--amber);
+  border-radius: 4px;
+  padding: 0.7rem 1rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--amber);
+  margin-bottom: 1rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MEMORY BADGE  (session turns counter)
+══════════════════════════════════════════════════════════════ */
+.mem-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  color: var(--magenta);
+  border: 1px solid rgba(224,64,251,0.3);
+  background: rgba(224,64,251,0.06);
+  padding: 0.3rem 0.8rem;
+  border-radius: 2px;
+  margin-top: 0.4rem;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   EMPTY STATE
+══════════════════════════════════════════════════════════════ */
+.empty-state {
+  background: var(--surface);
+  border: 1px dashed var(--border2);
+  border-radius: 4px;
+  padding: 4rem 2rem;
+  text-align: center;
+  font-family: 'Space Mono', monospace;
+}
+.empty-state .glyph {
+  font-size: 2.8rem;
+  opacity: 0.08;
+  margin-bottom: 1rem;
+  display: block;
+  font-family: 'Syne', sans-serif;
+}
+.empty-state .hint {
+  font-size: 0.7rem;
+  color: var(--muted);
+  line-height: 2;
+}
+.empty-state .hint b { color: var(--cyan); }
+
+/* ══════════════════════════════════════════════════════════════
+   STEP TRACKER
+══════════════════════════════════════════════════════════════ */
+.step-track { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.2rem; }
+.step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding: 0.65rem 1rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.73rem;
+  transition: all .2s ease;
+}
+.step-item.active  { border-color: var(--cyan);  background: var(--glow-c); color: var(--cyan); }
+.step-item.done    { border-color: var(--border); color: var(--muted); }
+.step-item.error   { border-color: var(--red);    background: rgba(255,64,96,0.07); color: var(--red); }
+.step-item.waiting { opacity: 0.3; }
+.step-icon { flex-shrink: 0; width: 1.1rem; text-align: center; }
+.step-detail { font-size: 0.65rem; margin-top: 0.15rem; opacity: 0.7; }
+
+/* Download button */
+[data-testid="stDownloadButton"] button {
+  background: transparent !important;
+  border: 1px solid var(--border2) !important;
+  color: var(--muted) !important;
+  font-family: 'Space Mono', monospace !important;
+  font-size: 0.65rem !important;
+  letter-spacing: 0.12em !important;
+  border-radius: 3px !important;
+  padding: 0.45rem 1rem !important;
+  margin-top: 0.6rem !important;
+}
+[data-testid="stDownloadButton"] button:hover {
+  border-color: var(--cyan) !important;
+  color: var(--cyan) !important;
+}
+
+[data-testid="stHorizontalBlock"] { gap: 2rem !important; }
+
+/* Expander */
+[data-testid="stExpander"] {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 4px !important;
+}
+[data-testid="stExpander"] summary {
+  font-family: 'Space Mono', monospace !important;
+  font-size: 0.75rem !important;
+  color: var(--text) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ── Session State Init ────────────────────────────────────────────────────────
-# This is how Streamlit stores data between reruns
-# chat_history is the list we pass to backend each request
-# turns is the display history for the UI
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-if "turns" not in st.session_state:
-    st.session_state.turns = []         # displayed in UI
-if "last_file_name" not in st.session_state:
-    st.session_state.last_file_name = None
+# ── Session state ─────────────────────────────────────────────────────────────
+for key, default in [
+    ("chat_history", []),   # sent to backend each request
+    ("turns",        []),   # UI display history
+    ("last_file",    None), # detect file change → reset
+]:
+    if key not in st.session_state:
+        st.session_state[key] = default
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-def check_backend():
+def check_health() -> bool:
     try:
         r = requests.get(HEALTH_URL, timeout=3)
         return r.status_code == 200
-    except:
+    except Exception:
         return False
 
-def validate_file(f):
-    if f is None: return "No file uploaded."
-    if f.size/1024/1024 > MAX_FILE_MB: return f"File too large. Max is {MAX_FILE_MB}MB."
-    if not f.name.lower().endswith(".csv"): return "Only CSV files supported."
+def validate_file(f) -> str | None:
+    if f is None:                          return "No file selected."
+    if f.size / 1024 / 1024 > MAX_FILE_MB: return f"File exceeds {MAX_FILE_MB} MB limit."
+    if not f.name.lower().endswith(".csv"):return "Only CSV files are supported."
     return None
 
-def step(icon, num, name, detail, state="waiting"):
-    return f'<div class="step-box step-{state}"><div class="step-row"><span class="step-icon">{icon}</span><span class="step-num">{num}</span><span class="step-name">{name}</span></div><div class="step-detail">{detail}</div></div>'
 
-# ── Masthead ──────────────────────────────────────────────────────────────────
-backend_online = check_backend()
-sc = "status-online" if backend_online else "status-offline"
-sl = "● Live" if backend_online else "● Offline"
-turn_count = len(st.session_state.turns)
+# ══════════════════════════════════════════════════════════════════════════════
+# HEADER
+# ══════════════════════════════════════════════════════════════════════════════
+online = check_health()
+sc     = "online"  if online else "offline"
+sl     = "● LIVE"  if online else "● OFFLINE"
+turns  = len(st.session_state.turns)
 
 st.markdown(f"""
-<div class="masthead">
-    <div>
-        <div class="masthead-issue">AI Data Intelligence Platform</div>
-        <div class="masthead-title">Data<span>Mind</span></div>
-    </div>
-    <div style="text-align:right">
-        <span class="status-pill {sc}">{sl}</span>
-        <div class="masthead-tagline">Upload your data.<br>Ask questions.<br>I remember the conversation.</div>
-    </div>
+<div class="dm-header">
+  <div>
+    <div class="dm-logo">Data<span>Mind</span></div>
+    <div class="dm-tagline">AI · Data Intelligence · Conversational Analysis</div>
+  </div>
+  <div style="text-align:right">
+    <div class="dm-status {sc}">{sl}</div>
+    {"" if online else '<div style="font-size:.62rem;color:var(--red);margin-top:.4rem;font-family:Space Mono,monospace">run: python backend.py</div>'}
+  </div>
 </div>
-<div class="rule-thick"></div>
 """, unsafe_allow_html=True)
 
-if not backend_online:
-    st.markdown('<div class="warn-card">⚠ &nbsp; Backend offline — run: <strong>python backend.py</strong></div>', unsafe_allow_html=True)
+if not online:
+    st.markdown('<div class="warn-banner">⚠ Backend is offline. Start it with <b>python backend.py</b> then refresh.</div>', unsafe_allow_html=True)
 
-# ── Inputs ────────────────────────────────────────────────────────────────────
-c1, c2 = st.columns([1, 1.6], gap="large")
+# ══════════════════════════════════════════════════════════════════════════════
+# INPUT PANEL
+# ══════════════════════════════════════════════════════════════════════════════
+col_left, col_right = st.columns([1, 1.7], gap="large")
 
-with c1:
-    st.markdown('<div class="slabel">01 &nbsp; Data Source</div>', unsafe_allow_html=True)
-    uploaded_file = st.file_uploader("CSV", type=["csv"], label_visibility="collapsed")
+with col_left:
+    st.markdown('<div class="sec-label">01 · Data Source</div>', unsafe_allow_html=True)
+    uploaded = st.file_uploader("CSV file", type=["csv"], label_visibility="collapsed")
 
-    if uploaded_file:
-        mb = uploaded_file.size/1024/1024
-        ok = mb <= MAX_FILE_MB
-        col = "#2A7A4A" if ok else "#C8302A"
-        bg  = "#F0FFF4" if ok else "#FFF5F5"
-        bd  = "#B0DFC0" if ok else "#F5C5C5"
-        ic  = "✓" if ok else "✕"
-        st.markdown(f'<div style="font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:{col};background:{bg};border:1px solid {bd};border-radius:3px;padding:0.45rem 0.8rem;margin-top:0.5rem">{ic} &nbsp; {uploaded_file.name} &nbsp;·&nbsp; {mb:.2f} MB</div>', unsafe_allow_html=True)
+    if uploaded:
+        mb  = uploaded.size / 1024 / 1024
+        ok  = mb <= MAX_FILE_MB
+        cls = "ok" if ok else "err"
+        ico = "✓" if ok else "✕"
+        st.markdown(
+            f'<div class="file-badge {cls}">'
+            f'<span>{ico}</span><span>{uploaded.name}</span>'
+            f'<span style="opacity:.5">·</span><span>{mb:.2f} MB</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        # Auto-reset history on new file
+        if st.session_state.last_file != uploaded.name:
+            st.session_state.chat_history = []
+            st.session_state.turns        = []
+            st.session_state.last_file    = uploaded.name
 
-        # Auto-clear history when a new file is uploaded
-        if st.session_state.last_file_name != uploaded_file.name:
-            st.session_state.chat_history  = []
-            st.session_state.turns         = []
-            st.session_state.last_file_name = uploaded_file.name
-
-with c2:
-    st.markdown('<div class="slabel">02 &nbsp; Query</div>', unsafe_allow_html=True)
+with col_right:
+    st.markdown('<div class="sec-label">02 · Query</div>', unsafe_allow_html=True)
     query = st.text_area(
         "Query",
-        placeholder="e.g. Which country has highest sales?\nThen: Now show me a bar chart of that.\nThen: Filter to only top 5...",
-        height=130,
-        label_visibility="collapsed"
+        placeholder=(
+            "e.g.  Which country has the highest sales?\n"
+            "Then: Now show me a bar chart of the top 5.\n"
+            "Then: Filter to Q3 only and compare by region."
+        ),
+        height=128,
+        label_visibility="collapsed",
     )
-    if turn_count > 0:
-        st.markdown(f'<div style="font-family:IBM Plex Mono,monospace;font-size:0.65rem;color:var(--muted);margin-top:0.4rem">💬 {turn_count} turn{"s" if turn_count!=1 else ""} in this session — agent remembers context</div>', unsafe_allow_html=True)
+    if turns > 0:
+        st.markdown(
+            f'<div class="mem-badge">◈ {turns} turn{"s" if turns!=1 else ""} in memory · context active</div>',
+            unsafe_allow_html=True,
+        )
 
-st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height:.8rem'></div>", unsafe_allow_html=True)
 
 # Buttons row
-btn_c1, btn_c2 = st.columns([4, 1], gap="small")
-with btn_c1:
-    st.markdown('<div class="slabel">03 &nbsp; Execute</div>', unsafe_allow_html=True)
-    run = st.button("◎  Run Analysis", use_container_width=True, disabled=not backend_online)
-with btn_c2:
-    st.markdown('<div class="slabel">Clear</div>', unsafe_allow_html=True)
-    if st.button("↺  New Session", use_container_width=True):
-        st.session_state.chat_history  = []
-        st.session_state.turns         = []
-        st.session_state.last_file_name = None
-        st.rerun()
+b1, b2, b3 = st.columns([5, 1.5, 1.5], gap="small")
+with b1:
+    st.markdown('<div class="sec-label">03 · Execute</div>', unsafe_allow_html=True)
+    run = st.button("◈  Run Analysis", use_container_width=True, disabled=not online)
+with b2:
+    st.markdown('<div class="sec-label">Session</div>', unsafe_allow_html=True)
+    clear = st.button("↺  New Session", use_container_width=True)
+with b3:
+    st.markdown("<div style='height:1.45rem'></div>", unsafe_allow_html=True)
+    # spacer to align with button
+    st.markdown("")
 
-st.markdown("<hr class='rule'>", unsafe_allow_html=True)
+if clear:
+    st.session_state.chat_history = []
+    st.session_state.turns        = []
+    st.session_state.last_file    = None
+    st.rerun()
 
-# ── Agent Run ─────────────────────────────────────────────────────────────────
+st.markdown("<hr style='border-color:var(--border);margin:1.5rem 0'>", unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AGENT RUN
+# ══════════════════════════════════════════════════════════════════════════════
 if run:
-    ferr = validate_file(uploaded_file)
+    # ── Validate ──────────────────────────────────────────────────────────────
+    ferr = validate_file(uploaded)
     if ferr:
-        st.markdown(f'<div class="error-card"><div class="error-lbl">Input Error</div>{ferr}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="err-banner"><div class="err-label">Input Error</div>{ferr}</div>', unsafe_allow_html=True)
         st.stop()
     if not query or not query.strip():
-        st.markdown('<div class="error-card"><div class="error-lbl">Input Error</div>Please enter a query.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="err-banner"><div class="err-label">Input Error</div>Please enter a query.</div>', unsafe_allow_html=True)
         st.stop()
 
-    # ── Live step progress ────────────────────────────────────────────────
-    st.markdown('<div class="slabel">Processing Log</div>', unsafe_allow_html=True)
-    s1=st.empty(); s2=st.empty(); s3=st.empty(); s4=st.empty(); s5=st.empty()
+    # ── Step tracker UI ───────────────────────────────────────────────────────
+    st.markdown('<div class="sec-label">Processing Log</div>', unsafe_allow_html=True)
+    s1 = st.empty(); s2 = st.empty(); s3 = st.empty()
+    s4 = st.empty(); s5 = st.empty()
 
-    s1.markdown(step("⚙","Step 01","Preparing File","Encoding CSV to base64...","active"), unsafe_allow_html=True)
-    s2.markdown(step("◌","Step 02","Connecting to Backend","Waiting...","waiting"), unsafe_allow_html=True)
-    s3.markdown(step("◌","Step 03","Node 1 — Data Extractor","Waiting...","waiting"), unsafe_allow_html=True)
-    s4.markdown(step("◌","Step 04","Node 2 — Code Generator",f"Waiting... (history: {len(st.session_state.chat_history)//2} turns)","waiting"), unsafe_allow_html=True)
-    s5.markdown(step("◌","Step 05","Node 3 — E2B Sandbox","Waiting...","waiting"), unsafe_allow_html=True)
+    def step(icon, num, name, detail, state="waiting"):
+        cls = f"step-item {state}"
+        return (
+            f'<div class="{cls}">'
+            f'<span class="step-icon">{icon}</span>'
+            f'<div><div>{num} &nbsp; <b>{name}</b></div>'
+            f'<div class="step-detail">{detail}</div></div></div>'
+        )
 
-    time.sleep(0.3)
-    raw = uploaded_file.getvalue()
-    b64 = base64.b64encode(raw).decode("utf-8")
-    kb  = len(raw)/1024
-    s1.markdown(step("✓","Step 01","File Ready",f"Encoded {kb:.1f} KB.","done"), unsafe_allow_html=True)
-    s2.markdown(step("⚙","Step 02","Connecting to Backend","Sending request to Railway backend...","active"), unsafe_allow_html=True)
+    s1.markdown(step("⚙", "01", "Encoding File",      "Base64 encoding CSV…",        "active"),  unsafe_allow_html=True)
+    s2.markdown(step("◌", "02", "Backend Request",    "Waiting…",                    "waiting"), unsafe_allow_html=True)
+    s3.markdown(step("◌", "03", "Data Extractor",     "Waiting…",                    "waiting"), unsafe_allow_html=True)
+    s4.markdown(step("◌", "04", "Code Generator",     f"LLM · {len(st.session_state.chat_history)//2} turns of context", "waiting"), unsafe_allow_html=True)
+    s5.markdown(step("◌", "05", "E2B Sandbox",        "Waiting…",                    "waiting"), unsafe_allow_html=True)
 
-    # Pass chat_history to backend so LLM has context
+    time.sleep(0.2)
+
+    # Encode file
+    raw    = uploaded.getvalue()
+    b64    = base64.b64encode(raw).decode("utf-8")
+    kb     = len(raw) / 1024
+
+    s1.markdown(step("✓", "01", "File Encoded",       f"{kb:.1f} KB ready",          "done"),    unsafe_allow_html=True)
+    s2.markdown(step("⚙", "02", "Backend Request",    "Sending to FastAPI…",         "active"),  unsafe_allow_html=True)
+    s3.markdown(step("⚙", "03", "Data Extractor",     "Parsing CSV…",                "active"),  unsafe_allow_html=True)
+    s4.markdown(step("⚙", "04", "Code Generator",     "LLM generating code…",        "active"),  unsafe_allow_html=True)
+    s5.markdown(step("⚙", "05", "E2B Sandbox",        "Spinning up sandbox…",        "active"),  unsafe_allow_html=True)
+
+    # Payload — same contract as original, now includes chat_history
     payload = {
         "input": {
             "user_query":         query.strip(),
@@ -225,119 +643,176 @@ if run:
             "code_output":        "",
             "image_data":         "",
             "code_error":         "",
-            "chat_history":       st.session_state.chat_history  # ← send history
+            "chat_history":       st.session_state.chat_history,   # ← memory
         }
     }
 
     try:
-        history_turns = len(st.session_state.chat_history)//2
-        s3.markdown(step("⚙","Step 03","Node 1 — Data Extractor","Parsing CSV...","active"), unsafe_allow_html=True)
-        s4.markdown(step("⚙","Step 04","Node 2 — Code Generator",f"LLM generating code with {history_turns} turns of context...","active"), unsafe_allow_html=True)
-        s5.markdown(step("⚙","Step 05","Node 3 — E2B Sandbox","Spinning up secure sandbox...","active"), unsafe_allow_html=True)
+        resp = requests.post(BACKEND_URL, json=payload, timeout=REQUEST_TIMEOUT)
+        s2.markdown(step("✓", "02", "Backend Connected",  f"HTTP {resp.status_code}", "done"), unsafe_allow_html=True)
 
-        response = requests.post(BACKEND_URL, json=payload, timeout=REQUEST_TIMEOUT)
-        s2.markdown(step("✓","Step 02","Connected",f"HTTP {response.status_code}.","done"), unsafe_allow_html=True)
+        if resp.status_code == 200:
+            out       = resp.json().get("output", {})
+            code_v    = out.get("code_generated_llm", "")
+            console_v = out.get("code_output",        "")
+            img_v     = out.get("image_data",         "")
+            err_v     = out.get("code_error",         "")
 
-        if response.status_code == 200:
-            output  = response.json().get("output", {})
-            code_v  = output.get("code_generated_llm", "")
-            cons_v  = output.get("code_output", "")
-            img_v   = output.get("image_data",  "")
-            err_v   = output.get("code_error",  "")
+            # Update local history from backend response
+            st.session_state.chat_history = out.get("chat_history", st.session_state.chat_history)
 
-            # ── Update local history from backend response ────────────────
-            # Backend returns updated history — we store it for next request
-            new_history = output.get("chat_history", st.session_state.chat_history)
-            st.session_state.chat_history = new_history
-
-            s3.markdown(step("✓","Step 03","Node 1 — Data Extractor","CSV parsed.","done"), unsafe_allow_html=True)
-            s4.markdown(step("✓" if code_v else "✕","Step 04","Node 2 — Code Generator",f"Code generated ({len(code_v)} chars)." if code_v else "No code generated.","done" if code_v else "error"), unsafe_allow_html=True)
+            s3.markdown(step("✓", "03", "Data Extractor",  "CSV parsed successfully",                    "done"),  unsafe_allow_html=True)
+            s4.markdown(step("✓" if code_v else "✕", "04", "Code Generator", f"{len(code_v)} chars generated" if code_v else "No code", "done" if code_v else "error"), unsafe_allow_html=True)
             if err_v:
-                s5.markdown(step("✕","Step 05","Node 3 — E2B Sandbox",f"Error: {err_v}","error"), unsafe_allow_html=True)
+                s5.markdown(step("✕", "05", "E2B Sandbox", f"Error: {err_v[:80]}", "error"), unsafe_allow_html=True)
             else:
-                hi = "Chart ✓" if img_v else "No chart"
-                ho = f"{len(cons_v)} chars" if cons_v else "No output"
-                s5.markdown(step("✓","Step 05","Node 3 — E2B Sandbox",f"Done. {ho} · {hi}","done"), unsafe_allow_html=True)
+                s5.markdown(step("✓", "05", "E2B Sandbox", f"Done · {'chart ✓' if img_v else 'no chart'} · {len(console_v)} chars stdout", "done"), unsafe_allow_html=True)
 
-            # ── Store turn for display ────────────────────────────────────
+            # Store turn for display
             st.session_state.turns.append({
+                "n":       len(st.session_state.turns) + 1,
                 "query":   query.strip(),
                 "code":    code_v,
-                "output":  cons_v,
+                "console": console_v,
                 "image":   img_v,
                 "error":   err_v,
-                "turn_num": len(st.session_state.turns) + 1
             })
-
-            st.rerun()  # rerun to show updated history
+            st.rerun()
 
         else:
-            for sx,n in [(s3,"Node 1"),(s4,"Node 2"),(s5,"Node 3")]:
-                sx.markdown(step("✕","—",n,"Skipped.","error"), unsafe_allow_html=True)
-            try: err = response.json().get("error", response.text)
-            except: err = response.text
-            st.markdown(f'<div class="error-card"><div class="error-lbl">Backend Error {response.status_code}</div>{err}</div>', unsafe_allow_html=True)
+            for sx in [s3, s4, s5]:
+                sx.markdown(step("✕", "—", "Skipped", "Backend error", "error"), unsafe_allow_html=True)
+            try:    err = resp.json().get("error", resp.text)
+            except: err = resp.text
+            st.markdown(f'<div class="err-banner"><div class="err-label">Backend Error {resp.status_code}</div>{err}</div>', unsafe_allow_html=True)
 
     except requests.exceptions.ConnectionError:
-        s2.markdown(step("✕","Step 02","Connection Failed","Cannot reach backend. Is backend.py running?","error"), unsafe_allow_html=True)
-        for sx,n in [(s3,"Node 1"),(s4,"Node 2"),(s5,"Node 3")]:
-            sx.markdown(step("✕","—",n,"Skipped — no connection.","error"), unsafe_allow_html=True)
+        s2.markdown(step("✕", "02", "Connection Failed", "Cannot reach backend",   "error"), unsafe_allow_html=True)
+        for sx in [s3, s4, s5]:
+            sx.markdown(step("✕", "—", "Skipped", "No connection", "error"), unsafe_allow_html=True)
     except requests.exceptions.Timeout:
-        s5.markdown(step("✕","Step 05","E2B Sandbox","Request timed out. Try a simpler query.","error"), unsafe_allow_html=True)
+        s5.markdown(step("✕", "05", "E2B Sandbox", "Request timed out — try simpler query", "error"), unsafe_allow_html=True)
     except Exception as e:
-        st.markdown(f'<div class="error-card"><div class="error-lbl">Unexpected Error</div>{str(e)}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="err-banner"><div class="err-label">Unexpected Error</div>{e}</div>', unsafe_allow_html=True)
 
 
-# ── Conversation History Display ──────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# CONVERSATION HISTORY DISPLAY
+# ══════════════════════════════════════════════════════════════════════════════
 if st.session_state.turns:
-    st.markdown('<div class="slabel">Conversation History</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-label">Conversation History</div>', unsafe_allow_html=True)
 
-    # Show turns in reverse — newest first
     for turn in reversed(st.session_state.turns):
-        n      = turn["turn_num"]
-        q      = turn["query"]
-        code_v = turn["code"]
-        cons_v = turn["output"]
-        img_v  = turn["image"]
-        err_v  = turn["error"]
+        n  = turn["n"]
+        q  = turn["query"]
+        is_latest = (n == len(st.session_state.turns))
+        has_error = bool(turn["error"])
 
-        with st.expander(f"Turn {n} — {q[:60]}{'...' if len(q)>60 else ''}", expanded=(n == len(st.session_state.turns))):
+        card_cls = "turn-card latest" if is_latest else ("turn-card errored" if has_error else "turn-card")
+        num_cls  = "turn-num errored" if has_error else "turn-num"
+        label    = "TURN" if not has_error else "ERROR"
 
-            if err_v:
-                st.markdown(f'<div class="error-card"><div class="error-lbl">Error</div>{err_v}</div>', unsafe_allow_html=True)
+        with st.expander(
+            f"Turn {n}  ·  {q[:70]}{'…' if len(q)>70 else ''}",
+            expanded=is_latest,
+        ):
+            if turn["error"]:
+                st.markdown(
+                    f'<div class="err-banner"><div class="err-label">Execution Error</div>{turn["error"]}</div>',
+                    unsafe_allow_html=True,
+                )
 
-            r1, r2 = st.columns([1,1], gap="large")
+            col_code, col_vis = st.columns([1, 1], gap="large")
 
-            with r1:
-                st.markdown('<div class="result-title">Generated Code</div><div class="result-meta">Python · LLM generated</div>', unsafe_allow_html=True)
-                if code_v:
-                    st.markdown('<div class="code-topbar"><span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>&nbsp; analysis.py</div>', unsafe_allow_html=True)
-                    st.code(code_v, language="python")
+            # ── LEFT: Code + Console ──────────────────────────────────────────
+            with col_code:
+                st.markdown(
+                    '<div style="font-family:Space Mono,monospace;font-size:.58rem;'
+                    'letter-spacing:.25em;text-transform:uppercase;color:var(--cyan-dim);'
+                    'margin-bottom:.5rem">Generated Code</div>',
+                    unsafe_allow_html=True,
+                )
+                if turn["code"]:
+                    st.markdown(
+                        '<div class="code-chrome-bar" style="background:#161b22;padding:.45rem .9rem;'
+                        'display:flex;align-items:center;gap:.45rem;border-radius:4px 4px 0 0;'
+                        'border:1px solid var(--border);border-bottom:none">'
+                        '<span class="mac-dot mac-r" style="width:9px;height:9px;border-radius:50%;background:#ff5f57;display:inline-block"></span>'
+                        '<span class="mac-dot mac-y" style="width:9px;height:9px;border-radius:50%;background:#febc2e;display:inline-block"></span>'
+                        '<span class="mac-dot mac-g" style="width:9px;height:9px;border-radius:50%;background:#28c840;display:inline-block"></span>'
+                        '<span style="margin-left:auto;font-family:Space Mono,monospace;font-size:.55rem;'
+                        'letter-spacing:.2em;color:var(--muted)">ANALYSIS.PY</span></div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.code(turn["code"], language="python")
                 else:
-                    st.markdown('<div class="empty-box"><div class="empty-icon">{ }</div>No code</div>', unsafe_allow_html=True)
+                    st.markdown(
+                        '<div class="console empty" style="font-family:Space Mono,monospace;'
+                        'font-size:.72rem;color:var(--muted);font-style:italic;background:#050508;'
+                        'border:1px solid var(--border);border-radius:4px;padding:.9rem">No code generated.</div>',
+                        unsafe_allow_html=True,
+                    )
 
-                st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
-                st.markdown('<div class="result-title">Console Output</div><div class="result-meta">stdout · Sandbox result</div>', unsafe_allow_html=True)
-                if cons_v:
-                    st.markdown(f'<div class="console-out">{cons_v}</div>', unsafe_allow_html=True)
+                st.markdown(
+                    '<div style="font-family:Space Mono,monospace;font-size:.58rem;'
+                    'letter-spacing:.25em;text-transform:uppercase;color:var(--cyan-dim);'
+                    'margin:.9rem 0 .5rem">Console Output</div>',
+                    unsafe_allow_html=True,
+                )
+                if turn["console"]:
+                    st.markdown(
+                        f'<div class="console">{turn["console"]}</div>',
+                        unsafe_allow_html=True,
+                    )
                 else:
-                    st.markdown('<div class="console-out console-empty">No output printed.</div>', unsafe_allow_html=True)
+                    st.markdown(
+                        '<div class="console" style="color:var(--muted);font-style:italic;'
+                        'font-family:Space Mono,monospace;font-size:.72rem;background:#050508;'
+                        'border:1px solid var(--border);border-radius:4px;padding:.9rem">No output printed.</div>',
+                        unsafe_allow_html=True,
+                    )
 
-            with r2:
-                st.markdown('<div class="result-title">Visualization</div><div class="result-meta">Chart · PNG from sandbox</div>', unsafe_allow_html=True)
-                if img_v:
-                    img_bytes = base64.b64decode(img_v)
-                    st.markdown('<div class="img-card">', unsafe_allow_html=True)
+            # ── RIGHT: Visualization ──────────────────────────────────────────
+            with col_vis:
+                st.markdown(
+                    '<div style="font-family:Space Mono,monospace;font-size:.58rem;'
+                    'letter-spacing:.25em;text-transform:uppercase;color:var(--cyan-dim);'
+                    'margin-bottom:.5rem">Visualization</div>',
+                    unsafe_allow_html=True,
+                )
+                if turn["image"]:
+                    img_bytes = base64.b64decode(turn["image"])
+                    st.markdown('<div class="img-frame">', unsafe_allow_html=True)
                     st.image(img_bytes, use_container_width=True)
                     st.markdown('</div>', unsafe_allow_html=True)
                     st.download_button(
-                        f"↓  Download Chart (Turn {n})",
-                        img_bytes, f"chart_turn_{n}.png", "image/png",
+                        f"↓  Download Chart — Turn {n}",
+                        data=img_bytes,
+                        file_name=f"datamind_chart_turn{n}.png",
+                        mime="image/png",
                         use_container_width=True,
-                        key=f"dl_{n}"
+                        key=f"dl_{n}",
                     )
                 else:
-                    st.markdown('<div class="empty-box"><div class="empty-icon">◎</div>No chart.<br><span style="opacity:0.6">Ask for a bar chart, line graph, or pie chart.</span></div>', unsafe_allow_html=True)
+                    st.markdown(
+                        '<div class="empty-state" style="padding:3rem 1.5rem">'
+                        '<span class="glyph">◈</span>'
+                        '<div class="hint">No chart generated.<br>'
+                        '<b>Ask for a bar chart, line graph, scatter plot…</b></div>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
 
+else:
+    st.markdown(
+        '<div class="empty-state">'
+        '<span class="glyph">◈</span>'
+        '<div class="hint">'
+        'Upload a CSV · Enter a query · Press <b>Run Analysis</b><br><br>'
+        'Ask follow-up questions — the agent remembers context.<br>'
+        '<span style="color:var(--muted)">e.g. "Now show the top 10" · "Filter by region" · "Add a trend line"</span>'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
 else:
     st.markdown('<div class="empty-box" style="padding:4rem 2rem"><div class="empty-icon" style="font-size:2.5rem">◎</div>Upload a CSV and ask your first question to begin.<br><span style="opacity:0.6">You can ask follow-up questions — the agent remembers context.</span></div>', unsafe_allow_html=True)
