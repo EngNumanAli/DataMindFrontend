@@ -814,5 +814,3 @@ else:
         '</div></div>',
         unsafe_allow_html=True,
     )
-else:
-    st.markdown('<div class="empty-box" style="padding:4rem 2rem"><div class="empty-icon" style="font-size:2.5rem">◎</div>Upload a CSV and ask your first question to begin.<br><span style="opacity:0.6">You can ask follow-up questions — the agent remembers context.</span></div>', unsafe_allow_html=True)
